@@ -1,0 +1,9 @@
+initial_energy_min=80
+initial_energy_max=100
+effort_decrease_min=2
+effort_decrease_max=5
+recovery_time_min=3
+recovery_time_max=7
+win_threshold=500
+game_duration=60
+rounds_to_win=2
