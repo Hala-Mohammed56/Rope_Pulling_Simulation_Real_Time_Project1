@@ -1,9 +1,6 @@
-initial_energy_min=80
-initial_energy_max=100
-effort_decrease_min=2
-effort_decrease_max=5
-recovery_time_min=3
-recovery_time_max=7
-win_threshold=500
-game_duration=60
-rounds_to_win=2
+80 100     # Initial energy range (min max)
+5 10       # Energy decrease per second (min max)
+2 4        # Recovery time if player falls (min max)
+500        # Win threshold
+60         # Game duration
+2          # Rounds to win
