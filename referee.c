@@ -37,6 +37,33 @@ void read_config(const char *filename) {
     fclose(fp);
 }
 
+void assign_positions(int energies[], int positions[]) {
+    int sorted_indices[TEAM_SIZE];
+    for (int i = 0; i < TEAM_SIZE; i++) {
+        sorted_indices[i] = i;
+    }
+
+    for (int i = 0; i < TEAM_SIZE - 1; i++) {
+        for (int j = i + 1; j < TEAM_SIZE; j++) {
+            if (energies[sorted_indices[i]] > energies[sorted_indices[j]]) {
+                int tmp = sorted_indices[i];
+                sorted_indices[i] = sorted_indices[j];
+                sorted_indices[j] = tmp;
+            }
+        }
+    }
+
+    for (int i = 0; i < TEAM_SIZE; i++) {
+        positions[sorted_indices[i]] = i;  // position: 0 (lowest) to 3 (highest)
+    }
+
+    // Debug print
+    printf("\n🔄 Team Energies & Assigned Positions:\n");
+    for (int i = 0; i < TEAM_SIZE; i++) {
+        printf("Player %d → Energy = %d → Position = %d\n", i, energies[i], positions[i]);
+    }
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Usage: %s config.txt\n", argv[0]);
@@ -50,6 +77,11 @@ int main(int argc, char *argv[]) {
     pipe(team2_pipe);
 
     pid_t players_pids[NUM_PLAYERS];
+    int team1_energies[TEAM_SIZE];
+    int team2_energies[TEAM_SIZE];
+    int team1_positions[TEAM_SIZE];
+    int team2_positions[TEAM_SIZE];
+
 
     for (int player_id = 0; player_id < NUM_PLAYERS; player_id++) {
         pid_t child_pid = fork();
@@ -77,8 +109,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    close(team1_pipe[1]);
-    close(team2_pipe[1]);
 
     printf("\nAll player processes created successfully:\n");
     for (int i = 0; i < NUM_PLAYERS; i++) {
@@ -96,22 +126,41 @@ int main(int argc, char *argv[]) {
 
     printf("\nReferee: Reading efforts from players...\n");
 
-    int effort;
     int team1_total = 0, team2_total = 0;
+    int effort;
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < TEAM_SIZE; i++) {
         if (read(team1_pipe[0], &effort, sizeof(int)) > 0) {
+            team1_energies[i] = effort;
             printf("Team 1 - Player %d effort: %d\n", i, effort);
             team1_total += effort;
+        } else {
+            perror("Failed to read from team1_pipe");
         }
     }
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < TEAM_SIZE; i++) {
         if (read(team2_pipe[0], &effort, sizeof(int)) > 0) {
+            team2_energies[i] = effort;
             printf("Team 2 - Player %d effort: %d\n", i + 4, effort);
             team2_total += effort;
+        } else {
+            perror("Failed to read from team2_pipe");
         }
     }
+
+    assign_positions(team1_energies, team1_positions);
+    assign_positions(team2_energies, team2_positions);
+
+    // Send position to each player via pipe
+    for (int i = 0; i < TEAM_SIZE; i++) {
+        write(team1_pipe[1], &team1_positions[i], sizeof(int));
+    }
+    for (int i = 0; i < TEAM_SIZE; i++) {
+        write(team2_pipe[1], &team2_positions[i], sizeof(int));
+    }
+    close(team1_pipe[1]);
+    close(team2_pipe[1]);
 
     printf("\nTeam 1 Total Effort: %d\n", team1_total);
     printf("Team 2 Total Effort: %d\n", team2_total);
