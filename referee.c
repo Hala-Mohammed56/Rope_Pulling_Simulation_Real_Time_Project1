@@ -58,7 +58,7 @@ void assign_positions(int energies[], int positions[]) {
     }
 
     // Debug print
-    printf("\n🔄 Team Energies & Assigned Positions:\n");
+    printf("\n Team Energies & Assigned Positions:\n");
     for (int i = 0; i < TEAM_SIZE; i++) {
         printf("Player %d → Energy = %d → Position = %d\n", i, energies[i], positions[i]);
     }
