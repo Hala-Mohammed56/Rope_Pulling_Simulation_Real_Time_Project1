@@ -58,8 +58,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    position = atoi(argv[1]);
-    pipe_fd = atoi(argv[2]);
+    pipe_fd = atoi(argv[2]);//***************************************
+    read(pipe_fd, &position, sizeof(int));//****************************
     const char* config_file = argv[3];
 
     srand(time(NULL) + getpid()); // better randomness
