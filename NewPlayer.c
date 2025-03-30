@@ -47,15 +47,15 @@ void handle_termination(int signum) {
 }
 
 void handle_round(int signum) {
-    signal(SIGUSR1, handle_round);
+    signal(SIGUSR1, handle_round); // Re-establish handler
 
     if (!player.active) {
         printf("Player %d: Inactive (recovering)\n", player.position);
         return;
     }
 
-    // 15% chance to fall (بدلاً من 10% لزيادة العشوائية)
-    if ((rand() % 100) < 15 && player.energy > 0) {
+    // 10% chance to fall
+    if ((rand() % 10) == 0 && player.energy > 0) {
         player.energy = 0;
         player.active = 0;
         printf("Player %d: Randomly fell down!\n", player.position);
@@ -75,11 +75,11 @@ void handle_round(int signum) {
 }
 
 void send_effort(int signum) {
-    signal(SIGUSR2, send_effort);
+    signal(SIGUSR2, send_effort); // Re-establish handler
 
     if (player.pipe_fd < 0) return;
 
-    int position_factor = player.position + 1;
+    int position_factor = player.position + 1; // 1-4
     int effort = player.energy * position_factor;
 
     printf("Player %d: Sending effort %d (energy: %d * factor: %d)\n",
@@ -109,20 +109,17 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // تهيئة عشوائية فريدة لكل لاعب
+    // Initialize player
     player.position = atoi(argv[1]);
-    unsigned int seed = time(NULL) ^ (getpid() << 16) ^ player.position;
-    srand(seed);
-
     player.pipe_fd = atoi(argv[2]);
     player.active = 1;
     player.recovering = 0;
+    srand(time(NULL) ^ (getpid() << 16));
 
     read_config(argv[3]);
     player.energy = rand_range(min_energy, max_energy);
 
-    printf("Player %d: Started with energy %d (Seed: %u)\n",
-           player.position, player.energy, seed);
+    printf("Player %d: Started with energy %d\n", player.position, player.energy);
 
     // Signal handlers
     signal(SIGUSR1, handle_round);
