@@ -67,11 +67,12 @@ void print_team_details(const char* team_name, int efforts[], int positions[], i
     printf("------------------------------------------------\n");
 
     for (int i = 0; i < size; i++) {
-        float energy = (float)efforts[i] / positions[i]; // استخدام float للدقة
-        printf("%d\t%d\t\t%.1f\t%d\n",
+        int energy = efforts[i] / positions[i];
+        printf("%d\t%d\t\t%d\t%d\n",
                i, positions[i], energy, efforts[i]);
     }
 }
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <config_file>\n", argv[0]);
