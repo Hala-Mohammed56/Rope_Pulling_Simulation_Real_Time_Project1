@@ -79,7 +79,8 @@ void send_effort(int signum) {
 
     if (player.pipe_fd < 0) return;
 
-    int position_factor = player.position + 1; // 1-4
+    int position_factor;
+    read(player.pipe_fd, &position_factor, sizeof(int));
     int effort = player.energy * position_factor;
 
     printf("Player %d: Sending effort %d (energy: %d * factor: %d)\n",
