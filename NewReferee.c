@@ -85,6 +85,9 @@ int main(int argc, char* argv[]) {
     int team1_consec = 0, team2_consec = 0;
     int rounds_played = 0;
 
+    int team1_efforts[TEAM_SIZE], team2_efforts[TEAM_SIZE];
+    int team1_pos[TEAM_SIZE], team2_pos[TEAM_SIZE];
+
     // Create pipes
     int team1_pipe[2], team2_pipe[2];
     pipe(team1_pipe);
@@ -122,14 +125,24 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < NUM_PLAYERS; i++) kill(players[i], SIGUSR1);
         sleep(1);
 
+        
+        // Send position factors to players before SIGUSR2
+        for (int i = 0; i < TEAM_SIZE; i++) {
+            write(team1_pipe[1], &team1_pos[i], sizeof(int));
+        }
+        for (int i = 0; i < TEAM_SIZE; i++) {
+            write(team2_pipe[1], &team2_pos[i], sizeof(int));
+        }
+
         // Signal players to send effort
         for (int i = 0; i < NUM_PLAYERS; i++) kill(players[i], SIGUSR2);
         sleep(1);
 
         // Read efforts
         int team1_total = 0, team2_total = 0;
-        int effort, team1_efforts[TEAM_SIZE], team2_efforts[TEAM_SIZE];
-        int team1_pos[TEAM_SIZE], team2_pos[TEAM_SIZE];
+        int effort;
+    int team1_efforts[TEAM_SIZE], team2_efforts[TEAM_SIZE];
+    int team1_pos[TEAM_SIZE], team2_pos[TEAM_SIZE];
 
         for (int i = 0; i < TEAM_SIZE; i++) {
             read(team1_pipe[0], &effort, sizeof(int));
