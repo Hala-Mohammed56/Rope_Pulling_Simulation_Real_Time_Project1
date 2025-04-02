@@ -22,13 +22,27 @@ void read_config(const char* filename) {
         exit(EXIT_FAILURE);
     }
 
-    if (fscanf(file, "%d %d", &min_energy, &max_energy) != 2 ||
-        fscanf(file, "%d %d", &min_decrease, &max_decrease) != 2 ||
-        fscanf(file, "%d %d", &min_recovery, &max_recovery) != 2 ||
-        fscanf(file, "%d", &win_threshold) != 1) {
-        fprintf(stderr, "Error: Invalid config file format\n");
-        exit(EXIT_FAILURE);
+    char line[100];
+
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d %d", &min_energy, &max_energy) != 2) {
+        fprintf(stderr, "Error: Invalid energy range in config\n"); exit(EXIT_FAILURE);
     }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d %d", &min_decrease, &max_decrease) != 2) {
+        fprintf(stderr, "Error: Invalid decrease range in config\n"); exit(EXIT_FAILURE);
+    }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d %d", &min_recovery, &max_recovery) != 2) {
+        fprintf(stderr, "Error: Invalid recovery range in config\n"); exit(EXIT_FAILURE);
+    }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d", &win_threshold) != 1) {
+        fprintf(stderr, "Error: Invalid win threshold in config\n"); exit(EXIT_FAILURE);
+    }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d", &win_threshold) != 1) {
+        fprintf(stderr, "Error: Invalid game duration in config\n"); exit(EXIT_FAILURE);
+    }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d", &win_threshold) != 1) {
+        fprintf(stderr, "Error: Invalid rounds to win in config\n"); exit(EXIT_FAILURE);
+    }
+
     fclose(file);
 }
 
