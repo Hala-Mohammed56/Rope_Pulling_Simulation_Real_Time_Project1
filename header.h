@@ -1,26 +1,26 @@
+/* Updated: header.h centralized for main.c and player.c */
 
-#ifndef LIBRARIES
-#define LIBRARIES
+#ifndef HEADER_H
+#define HEADER_H
 
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <sys/wait.h>
-#include <sys/types.h>
+#include <unistd.h>
 #include <signal.h>
+#include <time.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <limits.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
-#include <time.h>
 #include <sys/sem.h>
 #include <semaphore.h>
 #include <pthread.h>
-#include<sys/shm.h>
+#include <sys/shm.h>
 #include <errno.h>
 #include <GL/glut.h>
-
 
 #endif
