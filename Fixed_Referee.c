@@ -1,10 +1,10 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <time.h>
+#include <string.h>
 
 #define TEAM_SIZE 4
 #define NUM_PLAYERS 8
@@ -27,6 +27,13 @@ typedef struct {
 GameConfig config;
 pid_t players[NUM_PLAYERS];
 
+typedef struct {
+    int player_id;
+    int position;
+    int energy;
+    int effort;
+} PlayerStats;
+
 void read_config(const char* filename) {
     FILE* file = fopen(filename, "r");
     if (!file) {
@@ -44,11 +51,11 @@ void read_config(const char* filename) {
     fclose(file);
 }
 
-void assign_positions(int efforts[], int positions[]) {
+void assign_positions(int energies[], int positions[]) {
     int order[TEAM_SIZE] = {0, 1, 2, 3};
     for (int i = 0; i < TEAM_SIZE-1; i++) {
         for (int j = i+1; j < TEAM_SIZE; j++) {
-            if (efforts[order[i]] > efforts[order[j]]) {
+            if (energies[order[i]] > energies[order[j]]) {
                 int tmp = order[i];
                 order[i] = order[j];
                 order[j] = tmp;
@@ -66,7 +73,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-     // log to file
     read_config(argv[1]);
     int read_pipes[NUM_PLAYERS][2], write_pipes[NUM_PLAYERS][2];
 
@@ -103,19 +109,32 @@ int main(int argc, char* argv[]) {
 
     sleep(1);
     int score1 = 0, score2 = 0;
+    int last_winner = 0;
+    int consecutive_wins = 0;
+    int prev_energy_t1[TEAM_SIZE] = {0}, prev_energy_t2[TEAM_SIZE] = {0};
+    time_t start_time = time(NULL);
 
     for (int round = 1; round <= config.rounds_to_win; round++) {
-        printf("\n=== Round %d ===\n", round);
+        printf("\n=== Round %d ===\n\n", round);
         usleep(500000);
 
         for (int i = 0; i < NUM_PLAYERS; i++) kill(players[i], SIGUSR1);
         sleep(1);
 
-        int team1_pos[TEAM_SIZE], team2_pos[TEAM_SIZE];
-        int team1_eff[TEAM_SIZE], team2_eff[TEAM_SIZE];
+        PlayerStats t1_stats[TEAM_SIZE], t2_stats[TEAM_SIZE];
+        int team1_energies[TEAM_SIZE], team2_energies[TEAM_SIZE];
 
-        assign_positions((int[4]){1, 2, 3, 4}, team1_pos);
-        assign_positions((int[4]){1, 2, 3, 4}, team2_pos);
+        for (int i = 0; i < TEAM_SIZE; i++) {
+            read(read_pipes[i][0], &t1_stats[i], sizeof(PlayerStats));
+            team1_energies[i] = t1_stats[i].energy;
+
+            read(read_pipes[i + TEAM_SIZE][0], &t2_stats[i], sizeof(PlayerStats));
+            team2_energies[i] = t2_stats[i].energy;
+        }
+
+        int team1_pos[TEAM_SIZE], team2_pos[TEAM_SIZE];
+        assign_positions(team1_energies, team1_pos);
+        assign_positions(team2_energies, team2_pos);
 
         for (int i = 0; i < TEAM_SIZE; i++) {
             write(write_pipes[i][1], &team1_pos[i], sizeof(int));
@@ -126,35 +145,87 @@ int main(int argc, char* argv[]) {
         sleep(1);
 
         int total1 = 0, total2 = 0;
+
         for (int i = 0; i < TEAM_SIZE; i++) {
-            int effort1, effort2;
-            read(read_pipes[i][0], &effort1, sizeof(int));
-            read(read_pipes[i + TEAM_SIZE][0], &effort2, sizeof(int));
-            total1 += effort1;
-            total2 += effort2;
-            printf("Player T1-P%d: Effort=%d\t| Player T2-P%d: Effort=%d\n", i, effort1, i, effort2);
+            read(read_pipes[i][0], &t1_stats[i], sizeof(PlayerStats));
+            read(read_pipes[i + TEAM_SIZE][0], &t2_stats[i], sizeof(PlayerStats));
+
+            total1 += t1_stats[i].effort;
+            total2 += t2_stats[i].effort;
         }
 
-        printf(">> Team 1 Total: %d | Team 2 Total: %d\n", total1, total2);
-        if (total1 > total2) {
-            printf("🏅 Round %d Winner: Team 1\n", round);
-            score1++;
-        } else if (total2 > total1) {
-            printf("🏅 Round %d Winner: Team 2\n", round);
-            score2++;
-        } else {
-            printf("🤝 Round %d is a tie!\n", round);
+        printf("Team 1:\nPlayer | Position | Energy | Effort\n");
+        for (int i = 0; i < TEAM_SIZE; i++) {
+            char* change = " ";
+            if (t1_stats[i].energy < prev_energy_t1[i]) change = " 🔻";
+            else if (t1_stats[i].energy > prev_energy_t1[i]) change = " 🔺";
+
+            if (t1_stats[i].energy == 0)
+                printf("T1-P%d   |    %d     |   %3d   |  %sFALLEN%s%s\n",
+                       t1_stats[i].player_id, t1_stats[i].position, t1_stats[i].energy, RED, RESET, change);
+            else
+                printf("T1-P%d   |    %d     |   %3d   |  %3d%s\n",
+                       t1_stats[i].player_id, t1_stats[i].position, t1_stats[i].energy, t1_stats[i].effort, change);
+
+            prev_energy_t1[i] = t1_stats[i].energy;
         }
+
+        printf("\nTeam 2:\nPlayer | Position | Energy | Effort\n");
+        for (int i = 0; i < TEAM_SIZE; i++) {
+            char* change = " ";
+            if (t2_stats[i].energy < prev_energy_t2[i]) change = " 🔻";
+            else if (t2_stats[i].energy > prev_energy_t2[i]) change = " 🔺";
+
+            if (t2_stats[i].energy == 0)
+                printf("T2-P%d   |    %d     |   %3d   |  %sFALLEN%s%s\n",
+                       t2_stats[i].player_id, t2_stats[i].position, t2_stats[i].energy, RED, RESET, change);
+            else
+                printf("T2-P%d   |    %d     |   %3d   |  %3d%s\n",
+                       t2_stats[i].player_id, t2_stats[i].position, t2_stats[i].energy, t2_stats[i].effort, change);
+
+            prev_energy_t2[i] = t2_stats[i].energy;
+        }
+
+        printf("\n>> Team 1 Total: %d\t| Team 2 Total: %d\n", total1, total2);
+
+        if (total1 >= config.win_threshold && total1 > total2) {
+            printf("\U0001F3C5 Round %d Winner: Team 1\n", round);
+            score1++;
+            if (last_winner == 1) consecutive_wins++;
+            else { last_winner = 1; consecutive_wins = 1; }
+        } else if (total2 >= config.win_threshold && total2 > total1) {
+            printf("\U0001F3C5 Round %d Winner: Team 2\n", round);
+            score2++;
+            if (last_winner == 2) consecutive_wins++;
+            else { last_winner = 2; consecutive_wins = 1; }
+        } else {
+            printf("\U0001F91D Round %d is a tie or threshold not met!\n", round);
+            last_winner = 0;
+            consecutive_wins = 0;
+        }
+
+        if (consecutive_wins >= 2) {
+            printf("\n\U0001F389 Team %d won 2 rounds in a row! Game ends early.\n", last_winner);
+            break;
+        }
+
+        time_t current_time = time(NULL);
+        int elapsed = (int)(current_time - start_time);
+        if (elapsed >= config.game_duration) {
+            printf("\n\u23F0 Game duration of %d seconds reached! Game ends now.\n", config.game_duration);
+            break;
+        }
+
         usleep(500000);
     }
 
     printf("\n=== Game Over ===\n");
     if (score1 > score2)
-        printf("🏆 Final Winner: Team 1!\n");
+        printf("\U0001F3C6 Final Winner: Team 1!\n");
     else if (score2 > score1)
-        printf("🏆 Final Winner: Team 2!\n");
+        printf("\U0001F3C6 Final Winner: Team 2!\n");
     else
-        printf("🏁 Final Result: It's a tie!\n");
+        printf("\U0001F3C1 Final Result: It's a tie!\n");
 
     for (int i = 0; i < NUM_PLAYERS; i++) {
         kill(players[i], SIGTERM);
