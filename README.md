@@ -42,7 +42,9 @@ A Linux-based multi-process game written in C, simulating a tug-of-war between t
 Run this in your terminal:
 
 ```bash
-make
+gcc player.c -o player
+gcc referee.c -o referee
+gcc visual.c -o visual
 ```
 
 This builds:
