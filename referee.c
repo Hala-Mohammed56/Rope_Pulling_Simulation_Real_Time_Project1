@@ -17,13 +17,27 @@ void read_config(const char* filename) {
         exit(EXIT_FAILURE);
     }
 
-    fscanf(file, "%d %d %d %d %d %d %d %d %d",
-           &config.energy_min, &config.energy_max,
-           &config.decrease_min, &config.decrease_max,
-           &config.recovery_min, &config.recovery_max,
-           &config.win_threshold,
-           &config.game_duration,
-           &config.rounds_to_win);
+    char line[100];
+
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d %d", &config.energy_min, &config.energy_max) != 2) {
+        fprintf(stderr, "Error: Invalid energy range in config\n"); exit(EXIT_FAILURE);
+    }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d %d", &config.decrease_min, &config.decrease_max) != 2) {
+        fprintf(stderr, "Error: Invalid decrease range in config\n"); exit(EXIT_FAILURE);
+    }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d %d", &config.recovery_min, &config.recovery_max) != 2) {
+        fprintf(stderr, "Error: Invalid recovery range in config\n"); exit(EXIT_FAILURE);
+    }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d", &config.win_threshold) != 1) {
+        fprintf(stderr, "Error: Invalid win threshold in config\n"); exit(EXIT_FAILURE);
+    }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d", &config.game_duration) != 1) {
+        fprintf(stderr, "Error: Invalid game duration in config\n"); exit(EXIT_FAILURE);
+    }
+    if (!fgets(line, sizeof(line), file) || sscanf(line, "%d", &config.rounds_to_win) != 1) {
+        fprintf(stderr, "Error: Invalid rounds to win in config\n"); exit(EXIT_FAILURE);
+    }
+
     fclose(file);
 }
 
