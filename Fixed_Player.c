@@ -1,10 +1,17 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
 #include <fcntl.h>
+#include <string.h>
+
+typedef struct {
+    int player_id;
+    int position;
+    int energy;
+    int effort;
+} PlayerStats;
 
 typedef struct {
     int energy;
@@ -13,6 +20,7 @@ typedef struct {
     int write_fd;
     int active;
     int recovering;
+    int player_id;
 } Player;
 
 Player player;
@@ -55,15 +63,17 @@ void handle_round(int signum) {
     if ((rand() % 10) == 0 && player.energy > 0) {
         player.energy = 0;
         player.active = 0;
-        return;
+    } else {
+        int dec = rand_range(min_decrease, max_decrease);
+        player.energy = (player.energy - dec > 0) ? player.energy - dec : 0;
+        if (player.energy == 0) player.active = 0;
     }
 
-    int dec = rand_range(min_decrease, max_decrease);
-    player.energy = (player.energy - dec > 0) ? player.energy - dec : 0;
-
-    if (player.energy == 0) {
-        player.active = 0;
-    }
+    // Send updated energy to referee
+    PlayerStats energy_update;
+    energy_update.player_id = player.player_id;
+    energy_update.energy = player.energy;
+    write(player.write_fd, &energy_update, sizeof(PlayerStats));
 }
 
 void send_effort(int signum) {
@@ -73,9 +83,15 @@ void send_effort(int signum) {
 
     int position_factor;
     read(player.read_fd, &position_factor, sizeof(int));
-    int effort = player.energy * position_factor;
+    player.position = position_factor;
 
-    write(player.write_fd, &effort, sizeof(int));
+    PlayerStats stats;
+    stats.player_id = player.player_id;
+    stats.position = position_factor;
+    stats.energy = player.energy;
+    stats.effort = player.energy * position_factor;
+
+    write(player.write_fd, &stats, sizeof(PlayerStats));
 }
 
 void recover_player() {
@@ -95,7 +111,7 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    player.position = atoi(argv[1]);
+    player.player_id = atoi(argv[1]);
     player.read_fd = atoi(argv[2]);
     player.write_fd = atoi(argv[3]);
     player.active = 1;
@@ -115,7 +131,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    player.energy = energies[player.position];
+    player.energy = energies[player.player_id];
 
     signal(SIGUSR1, handle_round);
     signal(SIGUSR2, send_effort);
