@@ -3,23 +3,23 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 // Global variables for game state
 float rope_offset = 0.0f; // Offset for the rope position
-float player_offset = 0.0f; // Offset for player positions
-
 int team1_score = 0; // Score for Team 1
 int team2_score = 0; // Score for Team 2
 int current_round = 1; // Current round number
 int round_winner = 0; // Winner of the current round (0 = tie, 1 = Team 1, 2 = Team 2)
 int game_over = 0; // Flag to indicate if the game is over
 int final_winner = 0; // Final winner of the game (0 = tie, 1 = Team 1, 2 = Team 2)
-int previous_winner = 0; // Tracks the winner of the previous round
 int consecutive_wins = 0; // Tracks consecutive wins by a team
 
 int team1_effort = 0; // Total effort of Team 1
 int team2_effort = 0; // Total effort of Team 2
-int player_effort[8] = {90, 85, 88, 92, 91, 87, 86, 89}; // Effort values for each player
+int player_energy[8] = {0}; // Energy values for each player
+int player_positions[8] = {0}; // Positions for each player
 
 // Player positions (x-coordinates for Team 1 and Team 2)
 float team1_x[4] = {350, 400, 450, 500}; // Team 1 positions (left side)
@@ -32,6 +32,10 @@ int flash_count = 0; // Counter for flashing effect
 // Function prototypes (declarations)
 void flash_timer(int value);
 void next_round(int value);
+void read_player_data();
+
+// File descriptors for pipes
+int player_read_pipes[8];
 
 // Function to draw centered text
 void draw_centered_text(float x, float y, const char* str) {
@@ -49,20 +53,17 @@ void draw_centered_text(float x, float y, const char* str) {
 void update_display() {
     team1_effort = team2_effort = 0;
     for (int i = 0; i < 4; i++) {
-        team1_effort += player_effort[i]; // Calculate total effort for Team 1
-        team2_effort += player_effort[i + 4]; // Calculate total effort for Team 2
+        team1_effort += player_energy[i]; // Calculate total effort for Team 1
+        team2_effort += player_energy[i + 4]; // Calculate total effort for Team 2
     }
     glutPostRedisplay(); // Trigger redrawing
 }
 
 // Function to move the rope and players based on the round result
-void move_rope(int delta) {
-    rope_offset += delta;
-    player_offset += delta / 2.0f;
+void move_rope() {
+    rope_offset += (team1_effort - team2_effort) / 100.0f;
     if (rope_offset > 200) rope_offset = 200; // Limit maximum offset
     if (rope_offset < -200) rope_offset = -200; // Limit minimum offset
-    if (player_offset > 100) player_offset = 100; // Limit player offset
-    if (player_offset < -100) player_offset = -100;
     glutPostRedisplay(); // Trigger redrawing
 }
 
@@ -84,20 +85,19 @@ void flash_timer(int value) {
         glutTimerFunc(200, flash_timer, 0);
 }
 
-// Simulate a new round by assigning random effort values to players
+// Simulate a new round by reading real data from pipes
 void simulate_round(int value) {
-    for (int i = 0; i < 8; i++)
-        player_effort[i] = rand() % 21 + 80; // Random effort between 80 and 100
-    update_display();
-    glutTimerFunc(1000, next_round, 0); // Move to the next round after 1 second
+    read_player_data(); // Read player data from pipes
+    update_display(); // Update display with new data
+    glutTimerFunc(1000, next_round, 0); // Process the round result after 1 second
 }
 
 // Function to process the result of the current round
 void next_round(int value) {
     team1_effort = team2_effort = 0;
     for (int i = 0; i < 4; i++) {
-        team1_effort += player_effort[i]; // Calculate total effort for Team 1
-        team2_effort += player_effort[i + 4]; // Calculate total effort for Team 2
+        team1_effort += player_energy[i]; // Calculate total effort for Team 1
+        team2_effort += player_energy[i + 4]; // Calculate total effort for Team 2
     }
 
     // Determine the winner of the round
@@ -112,15 +112,14 @@ void next_round(int value) {
     }
 
     // Check for consecutive wins
-    if (round_winner == previous_winner && round_winner != 0) {
+    if (round_winner == 1 || round_winner == 2) {
         consecutive_wins++;
     } else {
-        consecutive_wins = 1;
+        consecutive_wins = 0;
     }
-    previous_winner = round_winner;
 
     // Move the rope based on the round result
-    move_rope((round_winner == 1) ? -20 : (round_winner == 2) ? 20 : 0);
+    move_rope();
 
     // Check if the game should end
     if (consecutive_wins >= 2 || current_round >= 4) {
@@ -132,9 +131,26 @@ void next_round(int value) {
     }
 }
 
+// Function to read player data from pipes
+void read_player_data() {
+    for (int i = 0; i < 8; i++) {
+        PlayerStats stats;
+        read(player_read_pipes[i], &stats, sizeof(PlayerStats));
+        player_energy[i] = stats.energy;
+        player_positions[i] = stats.position;
+    }
+}
+
 // Function to draw a stickman player
-void draw_stickman_player(float x, float y, float r, float g, float b, int effort) {
-    glColor3f(r, g, b);
+void draw_stickman_player(float x, float y, int energy, int position, int team) {
+    if (energy == 0) {
+        glColor3f(0.5, 0.5, 0.5); // Gray color for fallen players
+    } else if (team == 1) {
+        glColor3f(0.2, 0.4, 1.0); // Blue for Team 1
+    } else {
+        glColor3f(1.0, 0.3, 0.3); // Red for Team 2
+    }
+
     glBegin(GL_POLYGON);
     for (int i = 0; i < 100; i++) {
         float theta = 2.0f * M_PI * i / 100;
@@ -150,17 +166,20 @@ void draw_stickman_player(float x, float y, float r, float g, float b, int effor
         glVertex2f(x, y - 20); glVertex2f(x + 10, y - 40); // Right leg
     glEnd();
 
-    char str[10];
-    sprintf(str, "%d", effort); // Display effort value above the player
+    char str[20];
+    sprintf(str, "Energy: %d", energy); // Display energy value above the player
     draw_centered_text(x, y + 50, str);
+
+    sprintf(str, "Pos: %d", position); // Display position value
+    draw_centered_text(x, y + 70, str);
 }
 
 // Function to draw the rope
 void draw_rope() {
     glColor3f(0.5f, 0.3f, 0.1f); // Brown color for the rope
     glBegin(GL_LINES);
-        glVertex2f(300 + rope_offset, 140); // Start of the rope (left side) - Lowered slightly
-        glVertex2f(700 + rope_offset, 140); // End of the rope (right side) - Lowered slightly
+        glVertex2f(300 + rope_offset, 140); // Start of the rope (left side)
+        glVertex2f(700 + rope_offset, 140); // End of the rope (right side)
     glEnd();
 }
 
@@ -209,22 +228,20 @@ void display() {
     draw_centered_text(500, 590, buffer);
 
     sprintf(buffer, "Team 1 Effort: %d", team1_effort);
-    draw_centered_text(250 + player_offset, 550, buffer);
+    draw_centered_text(250, 550, buffer);
     sprintf(buffer, "Team 2 Effort: %d", team2_effort);
-    draw_centered_text(750 + player_offset, 550, buffer);
+    draw_centered_text(750, 550, buffer);
 
     draw_rope(); // Draw the rope
 
     // Draw players for Team 1
     for (int i = 0; i < 4; i++) {
-        int e = player_effort[i];
-        draw_stickman_player(team1_x[i] + player_offset, team_y[0], e == 0 ? 0.5 : 0.2, e == 0 ? 0.5 : 0.4, e == 0 ? 0.5 : 1.0, e);
+        draw_stickman_player(team1_x[i] + rope_offset / 2, team_y[0], player_energy[i], player_positions[i], 1);
     }
 
     // Draw players for Team 2
     for (int i = 0; i < 4; i++) {
-        int e = player_effort[i + 4];
-        draw_stickman_player(team2_x[i] + player_offset, team_y[1], e == 0 ? 0.5 : 1.0, e == 0 ? 0.5 : 0.3, e == 0 ? 0.5 : 0.3, e);
+        draw_stickman_player(team2_x[i] + rope_offset / 2, team_y[1], player_energy[i + 4], player_positions[i + 4], 2);
     }
 
     glFlush(); // Render everything
@@ -232,6 +249,18 @@ void display() {
 
 // Main function
 int main(int argc, char** argv) {
+    // Open pipes for communication with players
+    for (int i = 0; i < 8; i++) {
+        char pipe_name[50];
+        sprintf(pipe_name, "/tmp/player_pipe_%d", i);
+        player_read_pipes[i] = open(pipe_name, O_RDONLY);
+        if (player_read_pipes[i] < 0) {
+            perror("Failed to open player pipe");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Initialize GLUT
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB); // Single buffer mode with RGB colors
     glutInitWindowSize(1000, 700); // Window size
@@ -244,5 +273,11 @@ int main(int argc, char** argv) {
 
     glutTimerFunc(1000, simulate_round, 0); // Start the first round
     glutMainLoop(); // Enter the main loop
+
+    // Close pipes
+    for (int i = 0; i < 8; i++) {
+        close(player_read_pipes[i]);
+    }
+
     return 0;
 }
