@@ -1,6 +1,8 @@
 #include "header.h"
 #include "constants.h"
 #include "structs.h"
+#include <sys/stat.h>
+#include <fcntl.h>
 
 // Global configuration and players array
 GameConfig config;
@@ -73,6 +75,17 @@ int main(int argc, char* argv[]) {
     }
 
     read_config(argv[1]); // Load config
+    // Start visualizer process
+    pid_t visual_pid = fork();
+    if (visual_pid == 0) {
+        execl("./visual", "visual", NULL);
+        perror("Failed to launch visual");
+        exit(1);
+    } else {
+        sleep(1); // Give visualizer time to open named pipes
+    }
+
+
 
     // Set up pipes so the referee and players can send and receive data
     int read_pipes[NUM_PLAYERS][2], write_pipes[NUM_PLAYERS][2];
@@ -119,12 +132,19 @@ int main(int argc, char* argv[]) {
     int prev_energy_t1[TEAM_SIZE] = {0}, prev_energy_t2[TEAM_SIZE] = {0};
     time_t start_time = time(NULL);
 
+    //Create named pipes for visualizer
+    for (int i = 0; i < NUM_PLAYERS; i++) {
+        char pipe_name[50];
+        sprintf(pipe_name, "/tmp/player_pipe_%d", i);
+        mkfifo(pipe_name, 0666); // Ensure named pipes exist
+    }
+
     // ##################################
     // Main Loop
     // ##################################
     for (int round = 1; round <= config.rounds_to_win; round++) {
         printf("\n=== Round %d ===\n\n", round);
-        usleep(500000);
+        sleep(2);
 
         // Signal players to update energy
         for (int i = 0; i < NUM_PLAYERS; i++) kill(players[i], SIGUSR1);
@@ -166,6 +186,25 @@ int main(int argc, char* argv[]) {
             total1 += t1_stats[i].effort;
             total2 += t2_stats[i].effort;
         }
+
+        // Send updated stats to visualizer via named pipes
+        for (int i = 0; i < TEAM_SIZE; i++) {
+            char pipe_name[50];
+            sprintf(pipe_name, "/tmp/player_pipe_%d", i);
+            int fd = open(pipe_name, O_WRONLY | O_NONBLOCK);
+            if (fd >= 0) {
+                write(fd, &t1_stats[i], sizeof(PlayerStats));
+                close(fd);
+            }
+
+            sprintf(pipe_name, "/tmp/player_pipe_%d", i + TEAM_SIZE);
+            fd = open(pipe_name, O_WRONLY | O_NONBLOCK);
+            if (fd >= 0) {
+                write(fd, &t2_stats[i], sizeof(PlayerStats));
+                close(fd);
+            }
+        }
+
 
         // Display team stats
         printf("Team 1:\nPlayer | Position | Energy | Effort\n");
@@ -232,7 +271,7 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        usleep(500000);
+        sleep(2);
     }
 
     // Show the final winner (or a tie) after the game ends
