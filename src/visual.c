@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-
+#include "structs.h"
 // Global variables for game state
 float rope_offset = 0.0f; // Offset for the rope position
 int team1_score = 0; // Score for Team 1
@@ -22,8 +22,9 @@ int player_energy[8] = {0}; // Energy values for each player
 int player_positions[8] = {0}; // Positions for each player
 
 // Player positions (x-coordinates for Team 1 and Team 2)
-float team1_x[4] = {350, 400, 450, 500}; // Team 1 positions (left side)
-float team2_x[4] = {550, 600, 650, 700}; // Team 2 positions (right side)
+float team1_x[4], team2_x[4];
+
+
 float team_y[2] = {150, 150}; // Y-coordinate for both teams
 
 int flash_toggle = 0; // Toggle for flashing effect when the game ends
@@ -89,7 +90,7 @@ void flash_timer(int value) {
 void simulate_round(int value) {
     read_player_data(); // Read player data from pipes
     update_display(); // Update display with new data
-    glutTimerFunc(1000, next_round, 0); // Process the round result after 1 second
+    glutTimerFunc(3000, next_round, 0); // Process the round result after 1 second
 }
 
 // Function to process the result of the current round
@@ -167,19 +168,19 @@ void draw_stickman_player(float x, float y, int energy, int position, int team) 
     glEnd();
 
     char str[20];
-    sprintf(str, "Energy: %d", energy); // Display energy value above the player
-    draw_centered_text(x, y + 50, str);
-
     sprintf(str, "Pos: %d", position); // Display position value
     draw_centered_text(x, y + 70, str);
+
+    sprintf(str, "Energy: %d", energy); // Display energy value above the player
+    draw_centered_text(x, y + 50, str);
 }
 
 // Function to draw the rope
 void draw_rope() {
     glColor3f(0.5f, 0.3f, 0.1f); // Brown color for the rope
     glBegin(GL_LINES);
-        glVertex2f(300 + rope_offset, 140); // Start of the rope (left side)
-        glVertex2f(700 + rope_offset, 140); // End of the rope (right side)
+        glVertex2f(200 + rope_offset, 140); // Start of the rope (left side)
+        glVertex2f(1000 + rope_offset, 140); // End of the rope (right side)
     glEnd();
 }
 
@@ -249,6 +250,11 @@ void display() {
 
 // Main function
 int main(int argc, char** argv) {
+    for (int i = 0; i < 4; i++) {
+        team1_x[i] = 300 + i * 80; // جرّب قيم أكبر للمباعدة
+        team2_x[i] = 700 + i * 80;
+    }
+
     // Open pipes for communication with players
     for (int i = 0; i < 8; i++) {
         char pipe_name[50];
