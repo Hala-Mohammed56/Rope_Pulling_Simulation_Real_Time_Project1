@@ -64,7 +64,7 @@ void handle_termination(int signum) {
 // On SIGUSR1: reduce energy by random amount from config
 // ##################################
 void handle_round(int signum) {
-    signal(SIGUSR1, handle_round);  // Reinstall handler
+    sigset(SIGUSR1, handle_round);  // Reinstall handler
 
     if (!player.active) {
         // Try to recover
@@ -94,7 +94,7 @@ void handle_round(int signum) {
 // On SIGUSR2: calculate and send effort
 // ##################################
 void send_effort(int signum) {
-    signal(SIGUSR2, send_effort);  // Reinstall handler
+    sigset(SIGUSR2, send_effort);  // Reinstall handler
 
     if (player.read_fd < 0 || player.write_fd < 0) return;
 
@@ -145,10 +145,10 @@ int main(int argc, char* argv[]) {
     player.energy = energies[player.player_id];
 
     // Handle signals
-    signal(SIGUSR1, handle_round);
-    signal(SIGUSR2, send_effort);
-    signal(SIGTERM, handle_termination);
-    signal(SIGINT, handle_termination);
+    sigset(SIGUSR1, handle_round);
+    sigset(SIGUSR2, send_effort);
+    sigset(SIGTERM, handle_termination);
+    sigset(SIGINT, handle_termination);
 
     while (!terminate) {
         pause();
