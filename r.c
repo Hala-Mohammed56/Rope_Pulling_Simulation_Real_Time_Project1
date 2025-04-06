@@ -164,7 +164,7 @@ int main(int argc, char* argv[]) {
             if (fd >= 0) { write(fd, &t2_stats[i], sizeof(PlayerStats)); close(fd); }
         }
 
-        printf("Team 1:Player | Position | Energy | Effort");
+        printf("Team 1:Player | Position | Energy | Effort\n");
         for (int i = 0; i < TEAM_SIZE; i++) {
             char* change = " ";
             if (t1_stats[i].energy < prev_energy_t1[i]) change = " 🔻";
@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
             prev_energy_t1[i] = t1_stats[i].energy;
         }
 
-        printf("\nTeam 2:Player | Position | Energy | Effort");
+        printf("\nTeam 2:Player | Position | Energy | Effort\n");
         for (int i = 0; i < TEAM_SIZE; i++) {
             char* change = " ";
             if (t2_stats[i].energy < prev_energy_t2[i]) change = " 🔻";
