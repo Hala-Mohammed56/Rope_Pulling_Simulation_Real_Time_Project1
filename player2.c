@@ -64,24 +64,47 @@ void handle_termination(int signum) {
 // On SIGUSR1: reduce energy by random amount from config
 // ##################################
 void handle_round(int signum) {
+    static int recovery_seconds = 0;
+    static int recovery_time_needed = 0;
 
     if (!player.active) {
-        // Try to recover
-        int recover = rand_range(min_energy, max_energy);
-        player.energy += recover;
-        if (player.energy > 0) {
+        if (recovery_time_needed == 0) {
+            recovery_time_needed = rand_range(min_recovery, max_recovery);  
+            //printf(" Player %d needs %d seconds to recover.\n",
+                //   player.player_id, recovery_time_needed);
+        }
+
+        recovery_seconds++;
+        //printf("Player %d recovery progress: %d/%d\n",
+            //   player.player_id, recovery_seconds, recovery_time_needed);
+
+        if (recovery_seconds >= recovery_time_needed) {
+            int recover = rand_range(min_energy, max_energy);
+            player.energy += recover;
             player.active = 1;
+           // printf(" Player %d recovered after %d seconds! Energy: %d\n",
+                 //  player.player_id, recovery_seconds, player.energy);
+
+            // Reset for next fall
+            recovery_seconds = 0;
+            recovery_time_needed = 0;
         }
     } else {
         // Random energy decrease
         int dec = rand_range(min_decrease, max_decrease);
         player.energy -= dec;
+
+        //printf("Player %d lost %d energy. Remaining: %d\n",
+              // player.player_id, dec, player.energy);
+
         if (player.energy <= 0) {
             player.energy = 0;
             player.active = 0;
+            recovery_seconds = 0;
+            recovery_time_needed = 0;
+           // printf("Player %d has fallen!\n", player.player_id);
         }
     }
-
     // Send updated energy to referee
     PlayerStats energy_update;
     energy_update.player_id = player.player_id;
