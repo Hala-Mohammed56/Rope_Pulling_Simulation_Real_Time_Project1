@@ -69,43 +69,48 @@ void handle_round(int signum) {
 
     if (!player.active) {
         if (recovery_time_needed == 0) {
-            recovery_time_needed = rand_range(min_recovery, max_recovery);  
-            //printf(" Player %d needs %d seconds to recover.\n",
-                //   player.player_id, recovery_time_needed);
+            recovery_time_needed = rand_range(min_recovery, max_recovery);
+           // printf("Player %d needs %d seconds to recover.\n",
+               //    player.player_id, recovery_time_needed);
         }
 
         recovery_seconds++;
-        //printf("Player %d recovery progress: %d/%d\n",
-            //   player.player_id, recovery_seconds, recovery_time_needed);
+       // printf("Player %d recovery progress: %d/%d\n",
+              // player.player_id, recovery_seconds, recovery_time_needed);
 
         if (recovery_seconds >= recovery_time_needed) {
             int recover = rand_range(min_energy, max_energy);
             player.energy += recover;
             player.active = 1;
            // printf(" Player %d recovered after %d seconds! Energy: %d\n",
-                 //  player.player_id, recovery_seconds, player.energy);
+                  // player.player_id, recovery_seconds, player.energy);
 
-            // Reset for next fall
             recovery_seconds = 0;
             recovery_time_needed = 0;
         }
     } else {
-        // Random energy decrease
         int dec = rand_range(min_decrease, max_decrease);
-        player.energy -= dec;
 
-        //printf("Player %d lost %d energy. Remaining: %d\n",
-              // player.player_id, dec, player.energy);
+        if (player.energy - dec > 0) {
+            player.energy -= dec;
+            //printf("Player %d lost %d energy. Remaining: %d\n",
+                   //player.player_id, dec, player.energy);
+        } else {
+//            printf("Player %d skipped decrease to avoid falling (Energy: %d, Tried to lose: %d)\n",
+//                   player.player_id, player.energy, dec);
+        }
 
-        if (player.energy <= 0) {
+        int fall_chance = rand_range(1, 100);
+        if (fall_chance <= 5) {
             player.energy = 0;
             player.active = 0;
             recovery_seconds = 0;
             recovery_time_needed = 0;
-           // printf("Player %d has fallen!\n", player.player_id);
+//            printf("Player %d fell randomly! (Chance roll: %d%%)\n",
+//                   player.player_id, fall_chance);
         }
     }
-    // Send updated energy to referee
+
     PlayerStats energy_update;
     energy_update.player_id = player.player_id;
     energy_update.energy = player.energy;
