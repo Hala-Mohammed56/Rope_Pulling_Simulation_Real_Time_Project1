@@ -44,7 +44,8 @@ Run this in your terminal:
 ```bash
 gcc player.c -o player
 gcc referee.c -o referee
-gcc visual.c -o visual
+gcc visual.c -o visual -lGL -lGLU -lglut
+/referee config.txt
 ```
 
 This builds:
